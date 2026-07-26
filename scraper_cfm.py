@@ -1,7 +1,9 @@
 # ============================================================
-# AGENTE CFM - Busca de Médicos (UF = SP) - VERSÃO COM DEBUG
-# Pagina até o final, mesmo se os seletores de card não baterem
-# (nesse caso, cai no fallback de regex por página)
+# AGENTE CFM - Busca de Médicos (UF = SP) - v3
+# Corrige bug: existem 2 <select> com opção "SÃO PAULO" na página
+# (o seletor de "site regional" no topo, e o campo UF do formulário
+# de busca). O script agora localiza especificamente o <select>
+# associado ao label "UF:" dentro da seção "Encontre um médico".
 # ============================================================
 
 import re
@@ -10,7 +12,7 @@ from playwright.sync_api import sync_playwright
 
 URL = "https://portal.cfm.org.br/busca-medicos/"
 RATE_LIMIT_SECONDS = 2.0
-SAFETY_MAX_PAGES = 2000  # trava de segurança, não é o limite "real" esperado
+SAFETY_MAX_PAGES = 2000
 
 CRM_REGEX = re.compile(r"\b(EME)?\s?\d{4,7}(-?P)?\b", re.IGNORECASE)
 
@@ -27,38 +29,60 @@ with sync_playwright() as p:
         page.get_by_text("Aceito", exact=True).click(timeout=5000)
         print("Cookie banner aceito.")
     except Exception:
-        print("Sem banner de cookies (ou já fechado).")
+        try:
+            page.get_by_text("PERMITIR", exact=True).click(timeout=3000)
+            print("Cookie banner (PERMITIR) aceito.")
+        except Exception:
+            print("Sem banner de cookies (ou já fechado).")
 
     page.screenshot(path="debug_01_form.png", full_page=True)
 
-    # --- Seleciona UF = São Paulo ---
+    # --- Seleciona UF = São Paulo DENTRO DO FORMULÁRIO DE BUSCA ---
+    # Estratégia: localizar o texto "Encontre um médico" e restringir a
+    # busca do <select> à área abaixo dele (evita pegar o seletor do
+    # topo da página, que também tem opção "SÃO PAULO").
     uf_selecionada = False
     try:
-        selects = page.locator("select")
-        n = selects.count()
-        print(f"Encontrados {n} elementos <select> na página.")
+        form_section = page.locator("text=Encontre um médico").locator(
+            "xpath=ancestor::*[self::section or self::div][1]"
+        )
+        # Sobe alguns níveis até achar um container que já tenha o <select> de UF
+        container = page.locator("body")
+        selects_no_form = form_section.locator("xpath=following::select")
+        n = selects_no_form.count()
+        print(f"Selects encontrados APÓS o texto 'Encontre um médico': {n}")
+
         for i in range(n):
-            sel = selects.nth(i)
+            sel = selects_no_form.nth(i)
             options = sel.locator("option").all_inner_texts()
             paulo_opts = [o for o in options if "PAULO" in o.upper()]
             if paulo_opts:
                 sel.select_option(label=paulo_opts[0])
+                sel.dispatch_event("change")
                 uf_selecionada = True
-                print(f"UF selecionada via <select> #{i}: {paulo_opts[0]}")
+                print(f"UF selecionada via <select> (pós-label) #{i}: {paulo_opts[0]}")
                 break
     except Exception as e:
-        print(f"Tentativa via <select> falhou: {e}")
+        print(f"Tentativa via localização por label falhou: {e}")
 
+    # Fallback antigo, mas agora como ÚLTIMO recurso, avisando explicitamente
     if not uf_selecionada:
+        print("AVISO: usando fallback genérico de <select> - pode pegar o seletor errado.")
         try:
-            page.get_by_text("Selecione o Estado", exact=True).click()
-            page.wait_for_timeout(500)
-            page.screenshot(path="debug_02_dropdown_aberto.png", full_page=True)
-            page.get_by_text("SÃO PAULO", exact=True).click()
-            uf_selecionada = True
-            print("UF selecionada via clique em dropdown customizado.")
+            selects = page.locator("select")
+            n = selects.count()
+            for i in range(n):
+                sel = selects.nth(i)
+                options = sel.locator("option").all_inner_texts()
+                paulo_opts = [o for o in options if "PAULO" in o.upper()]
+                if paulo_opts:
+                    sel.select_option(label=paulo_opts[0])
+                    sel.dispatch_event("change")
+                    uf_selecionada = True
+                    print(f"UF selecionada via <select> genérico #{i}: {paulo_opts[0]}")
+                    break
         except Exception as e:
-            print(f"ERRO ao selecionar UF: {e}")
+            print(f"Fallback genérico também falhou: {e}")
 
     page.screenshot(path="debug_03_apos_selecionar_uf.png", full_page=True)
 
@@ -100,11 +124,10 @@ with sync_playwright() as p:
                         "situacao": situacao, "especialidade": especialidade,
                     })
             else:
-                # Fallback: tenta achar uma área de conteúdo principal (evita header/footer)
                 print("  Seletores de card não bateram - usando fallback de texto.")
-                container = page.locator("main")
-                if container.count() > 0:
-                    body_text = container.first.inner_text()
+                container_loc = page.locator("main")
+                if container_loc.count() > 0:
+                    body_text = container_loc.first.inner_text()
                 else:
                     body_text = page.inner_text("body")
                 crms_pagina = [m.group(0) for m in CRM_REGEX.finditer(body_text)]
@@ -116,7 +139,6 @@ with sync_playwright() as p:
 
             print(f"  -> {len(resultados)} registros acumulados até agora")
 
-            # Salva um screenshot leve a cada 20 páginas, só pra acompanhar sem gerar excesso de arquivos
             if page_num == 1 or page_num % 20 == 0:
                 page.screenshot(path=f"debug_page_{page_num:04d}.png", full_page=True)
 
