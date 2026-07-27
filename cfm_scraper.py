@@ -144,14 +144,10 @@ def extrair_pagina_atual(driver, page_num=1):
         "table tbody tr", ".resultado-item", ".card-medico", "li.medico", ".item-resultado",
         "[class*='resultado']", "[class*='medico']", "[class*='card']",
     ]
-    linhas = []
+    seletor_usado = None
     for sel in seletores_linha:
         linhas = driver.find_elements(By.CSS_SELECTOR, sel)
-        if linhas:
-            print(f"  Usando seletor de linha: '{sel}' ({len(linhas)} encontradas)")
-            break
-
-    if linhas:
+        candidatos = []
         for linha in linhas:
             texto = linha.text.strip()
             if not texto:
@@ -159,11 +155,17 @@ def extrair_pagina_atual(driver, page_num=1):
             crm_match = CRM_REGEX.search(texto)
             crm = crm_match.group(0) if crm_match else ""
             primeira_linha = texto.split("\n")[0]
-            resultados.append({"nome": primeira_linha, "crm": crm, "uf": "SP", "texto_bruto": texto})
-    else:
-        print("  Nenhuma linha de resultado estruturada encontrada - salvando fallback vazio.")
+            candidatos.append({"nome": primeira_linha, "crm": crm, "uf": "SP", "texto_bruto": texto})
+        if candidatos:
+            resultados = candidatos
+            seletor_usado = sel
+            print(f"  Usando seletor de linha: '{sel}' ({len(candidatos)} com texto de {len(linhas)} elementos)")
+            break
+
+    if not resultados:
+        print("  Nenhuma linha de resultado com texto encontrada - salvando fallback vazio.")
         if page_num == 1:
-            dump_diagnostico(driver, "nenhuma linha de resultado encontrada na página 1")
+            dump_diagnostico(driver, "nenhuma linha de resultado com texto encontrada na página 1")
 
     return resultados
 
