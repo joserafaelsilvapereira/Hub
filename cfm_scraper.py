@@ -138,19 +138,23 @@ def dump_diagnostico(driver, motivo):
     print("----- FIM DIAGNÓSTICO -----\n")
 
 
+TAMANHO_MAX_LINHA = 500  # acima disso é quase certo um container, não uma linha de resultado
+
+
 def extrair_pagina_atual(driver, page_num=1):
     resultados = []
+    # Seletores específicos de resultado apenas - nada de substring genérica
+    # tipo [class*='medico'], que já provou capturar containers inteiros da
+    # página (menu, formulário, footer) em vez de uma linha de resultado.
     seletores_linha = [
         "table tbody tr", ".resultado-item", ".card-medico", "li.medico", ".item-resultado",
-        "[class*='resultado']", "[class*='medico']", "[class*='card']",
     ]
-    seletor_usado = None
     for sel in seletores_linha:
         linhas = driver.find_elements(By.CSS_SELECTOR, sel)
         candidatos = []
         for linha in linhas:
             texto = linha.text.strip()
-            if not texto:
+            if not texto or len(texto) > TAMANHO_MAX_LINHA:
                 continue
             crm_match = CRM_REGEX.search(texto)
             crm = crm_match.group(0) if crm_match else ""
@@ -158,7 +162,6 @@ def extrair_pagina_atual(driver, page_num=1):
             candidatos.append({"nome": primeira_linha, "crm": crm, "uf": "SP", "texto_bruto": texto})
         if candidatos:
             resultados = candidatos
-            seletor_usado = sel
             print(f"  Usando seletor de linha: '{sel}' ({len(candidatos)} com texto de {len(linhas)} elementos)")
             break
 
