@@ -43,13 +43,23 @@ def montar_driver():
 
 
 def aceitar_cookies(driver, wait):
-    for texto in ["Aceito", "PERMITIR", "ACEITO"]:
+    # O botão de texto "Aceito" costuma ficar coberto por um widget de
+    # cookies (classe cb__b_allow) que sobrepõe o layout, o que causa
+    # ElementClickInterceptedException num .click() normal do Selenium.
+    # Por isso: (1) tenta o seletor real do widget primeiro, e (2) usa
+    # clique via JavaScript, que ignora sobreposição de elementos.
+    seletores = [
+        (By.CSS_SELECTOR, ".cb__b_allow"),
+        (By.XPATH, "//button[contains(., 'Aceito')] | //a[contains(., 'Aceito')]"),
+        (By.XPATH, "//button[contains(., 'PERMITIR')] | //a[contains(., 'PERMITIR')]"),
+        (By.XPATH, "//button[contains(., 'ACEITO')] | //a[contains(., 'ACEITO')]"),
+    ]
+    for by, seletor in seletores:
         try:
-            botao = WebDriverWait(driver, 4).until(
-                EC.element_to_be_clickable((By.XPATH, f"//button[contains(., '{texto}')] | //a[contains(., '{texto}')]"))
-            )
-            botao.click()
-            print(f"Cookie banner aceito ('{texto}').")
+            botao = WebDriverWait(driver, 4).until(EC.presence_of_element_located((by, seletor)))
+            driver.execute_script("arguments[0].click();", botao)
+            print(f"Cookie banner aceito (seletor: {seletor}).")
+            time.sleep(0.5)
             return
         except TimeoutException:
             continue

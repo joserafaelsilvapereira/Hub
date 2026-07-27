@@ -64,6 +64,7 @@ MAX_PAGINAS = None         # None = vai até acabar; ou defina um número pra te
 
 # Seletores do formulário/resultado — AJUSTAR conforme o HTML real (ver docstring acima)
 SELECTORS = {
+    "cookie_aceito_widget": ".cb__b_allow",
     "cookie_aceito": "//button[contains(., 'Aceito')] | //a[contains(., 'ACEITO')]",
     "select_uf": "select[name='uf'], #uf, select#estado",
     "botao_enviar": "//button[contains(., 'ENVIAR')] | //input[@value='ENVIAR']",
@@ -86,11 +87,23 @@ def montar_driver():
 
 
 def aceitar_cookies(driver, wait):
-    try:
-        botao = wait.until(EC.element_to_be_clickable((By.XPATH, SELECTORS["cookie_aceito"])))
-        botao.click()
-    except TimeoutException:
-        pass  # banner pode não aparecer sempre
+    # O botão de texto "Aceito" costuma ficar coberto por um widget de
+    # cookies (classe cb__b_allow) que sobrepõe o layout, o que causa
+    # ElementClickInterceptedException num .click() normal do Selenium.
+    # Por isso: (1) tenta o seletor real do widget primeiro, e (2) usa
+    # clique via JavaScript, que ignora sobreposição de elementos.
+    for by, seletor in [
+        (By.CSS_SELECTOR, SELECTORS["cookie_aceito_widget"]),
+        (By.XPATH, SELECTORS["cookie_aceito"]),
+    ]:
+        try:
+            botao = WebDriverWait(driver, 4).until(EC.presence_of_element_located((by, seletor)))
+            driver.execute_script("arguments[0].click();", botao)
+            time.sleep(0.5)
+            return
+        except TimeoutException:
+            continue
+    pass  # banner pode não aparecer sempre
 
 
 def selecionar_uf(driver, wait, uf: str):
