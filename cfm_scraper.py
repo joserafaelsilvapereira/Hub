@@ -122,19 +122,23 @@ def enviar_busca(driver, wait):
 
 def dump_diagnostico(driver, motivo):
     # Não temos como abrir o navegador nem ver os screenshots de debug
-    # neste ambiente, então despeja um trecho do HTML real da página nos
-    # próprios logs do job - isso é o que dá pra inspecionar remotamente.
+    # neste ambiente, então despeja informação da página real nos próprios
+    # logs do job - isso é o que dá pra inspecionar remotamente. Um dump do
+    # HTML bruto (page_source) estoura em milhares de caracteres de nav/menu
+    # antes mesmo de chegar na área de resultados, então aqui usamos o TEXTO
+    # VISÍVEL da página (sem tags), bem mais compacto e direto ao ponto.
     print(f"\n----- DIAGNÓSTICO ({motivo}) -----")
     print(f"URL atual: {driver.current_url}")
     print(f"Título: {driver.title}")
     html = driver.page_source
     print(f"Tamanho do HTML: {len(html)} caracteres")
-    print("Primeiros 4000 caracteres do <body>:")
     try:
-        body_html = driver.find_element(By.TAG_NAME, "body").get_attribute("innerHTML")
+        texto_visivel = driver.find_element(By.TAG_NAME, "body").text
     except NoSuchElementException:
-        body_html = html
-    print(body_html[:4000])
+        texto_visivel = ""
+    print(f"Tamanho do texto visível: {len(texto_visivel)} caracteres")
+    print("--- Texto visível completo ---")
+    print(texto_visivel)
     print("----- FIM DIAGNÓSTICO -----\n")
 
 
