@@ -68,15 +68,15 @@ def aceitar_cookies(driver, wait):
 
 def selecionar_uf_correto(driver, wait):
     """
-    Existem 2 <select> na página com uma opção 'SÃO PAULO': o seletor de
-    'site regional' no topo, e o campo UF de verdade dentro do formulário
-    'Encontre um médico'. Este função localiza especificamente o segundo,
-    procurando o <select> que aparece DEPOIS do texto 'Encontre um médico'.
+    Existem 2 <select> na página com opção de UF: o seletor de 'site
+    regional' no topo, e o campo UF de verdade dentro do formulário
+    'Encontre um médico'. Esta função localiza especificamente o segundo,
+    procurando o <select> que aparece DEPOIS do texto 'Encontre um médico',
+    e seleciona a opção cujo value OU texto seja exatamente 'SP'.
     """
     wait.until(EC.presence_of_element_located((By.TAG_NAME, "select")))
 
     try:
-        marcador = driver.find_element(By.XPATH, "//*[contains(text(), 'Encontre um médico')]")
         selects_apos = driver.find_elements(
             By.XPATH, "//*[contains(text(), 'Encontre um médico')]/following::select"
         )
@@ -87,17 +87,18 @@ def selecionar_uf_correto(driver, wait):
 
     for sel_el in candidatos:
         sel = Select(sel_el)
-        opcoes = [o.text.strip().upper() for o in sel.options]
-        if any("PAULO" in o for o in opcoes):
-            texto_opcao = next(o.text for o in sel.options if "PAULO" in o.text.upper())
-            sel.select_by_visible_text(texto_opcao)
-            driver.execute_script(
-                "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));", sel_el
-            )
-            print(f"UF selecionada: '{texto_opcao}' (via {'form' if selects_apos else 'fallback genérico'})")
-            return True
+        for opt in sel.options:
+            valor = (opt.get_attribute("value") or "").strip().upper()
+            texto = opt.text.strip().upper()
+            if valor == "SP" or texto == "SP":
+                sel.select_by_visible_text(opt.text)
+                driver.execute_script(
+                    "arguments[0].dispatchEvent(new Event('change', {bubbles:true}));", sel_el
+                )
+                print(f"UF selecionada: '{opt.text}' (value='{opt.get_attribute('value')}', via {'form' if selects_apos else 'fallback genérico'})")
+                return True
 
-    print("ERRO: não encontrei nenhum <select> com opção contendo 'PAULO'.")
+    print("ERRO: não encontrei nenhum <select> com opção UF = 'SP'.")
     return False
 
 
