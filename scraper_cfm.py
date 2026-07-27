@@ -131,9 +131,12 @@ def _select_by_value_ou_texto(select_el, uf):
 
 
 def enviar_busca(driver, wait):
-    botao = wait.until(EC.presence_of_element_located((By.XPATH, SELECTORS["botao_enviar"])))
+    # Clique via JS tem isTrusted=false - funciona pro banner de cookies mas
+    # o formulário de busca não processa a submissão vinda dele (a página só
+    # recarrega vazia). Por isso aqui usamos clique NATIVO do Selenium.
+    botao = wait.until(EC.element_to_be_clickable((By.XPATH, SELECTORS["botao_enviar"])))
     driver.execute_script("arguments[0].scrollIntoView({block:'center'});", botao)
-    driver.execute_script("arguments[0].click();", botao)
+    botao.click()
     # espera pedida: alguns segundos após a busca, pro resultado (AJAX) aparecer
     time.sleep(ESPERA_APOS_BUSCA)
 
@@ -172,7 +175,7 @@ def ir_para_proxima_pagina(driver) -> bool:
         return False
 
     driver.execute_script("arguments[0].scrollIntoView({block:'center'});", botao)
-    driver.execute_script("arguments[0].click();", botao)
+    botao.click()  # clique nativo - mesmo motivo do ENVIAR (ver enviar_busca)
     time.sleep(ESPERA_APOS_PAGINACAO)
     return True
 

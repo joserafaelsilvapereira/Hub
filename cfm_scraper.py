@@ -111,12 +111,19 @@ def selecionar_uf_correto(driver, wait):
 
 
 def enviar_busca(driver, wait):
+    # Clique via JS (arguments[0].click()) dispara um evento com
+    # isTrusted=false. O banner de cookies aceita isso, mas o formulário de
+    # busca aparentemente não processa a submissão vinda de um clique
+    # sintético - a página só recarrega o formulário vazio, sem erro e sem
+    # resultado. Por isso aqui usamos um clique NATIVO do Selenium
+    # (WebElement.click()), que é tratado pelo navegador como um clique
+    # real de usuário.
     botao = wait.until(
-        EC.presence_of_element_located((By.XPATH, "//button[contains(., 'ENVIAR')] | //input[@value='ENVIAR']"))
+        EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'ENVIAR')] | //input[@value='ENVIAR']"))
     )
     driver.execute_script("arguments[0].scrollIntoView({block:'center'});", botao)
-    driver.execute_script("arguments[0].click();", botao)
-    print("Botão ENVIAR clicado.")
+    botao.click()
+    print("Botão ENVIAR clicado (clique nativo).")
     time.sleep(ESPERA_APOS_BUSCA)
 
 
@@ -190,7 +197,7 @@ def ir_para_proxima_pagina(driver):
         return False
 
     driver.execute_script("arguments[0].scrollIntoView({block:'center'});", botao)
-    driver.execute_script("arguments[0].click();", botao)
+    botao.click()  # clique nativo - mesmo motivo do ENVIAR (ver enviar_busca)
     time.sleep(ESPERA_APOS_PAGINACAO)
     return True
 
