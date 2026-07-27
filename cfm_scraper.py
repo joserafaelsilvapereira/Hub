@@ -120,10 +120,29 @@ def enviar_busca(driver, wait):
     time.sleep(ESPERA_APOS_BUSCA)
 
 
-def extrair_pagina_atual(driver):
+def dump_diagnostico(driver, motivo):
+    # Não temos como abrir o navegador nem ver os screenshots de debug
+    # neste ambiente, então despeja um trecho do HTML real da página nos
+    # próprios logs do job - isso é o que dá pra inspecionar remotamente.
+    print(f"\n----- DIAGNÓSTICO ({motivo}) -----")
+    print(f"URL atual: {driver.current_url}")
+    print(f"Título: {driver.title}")
+    html = driver.page_source
+    print(f"Tamanho do HTML: {len(html)} caracteres")
+    print("Primeiros 4000 caracteres do <body>:")
+    try:
+        body_html = driver.find_element(By.TAG_NAME, "body").get_attribute("innerHTML")
+    except NoSuchElementException:
+        body_html = html
+    print(body_html[:4000])
+    print("----- FIM DIAGNÓSTICO -----\n")
+
+
+def extrair_pagina_atual(driver, page_num=1):
     resultados = []
     seletores_linha = [
-        "table tbody tr", ".resultado-item", ".card-medico", "li.medico", ".item-resultado"
+        "table tbody tr", ".resultado-item", ".card-medico", "li.medico", ".item-resultado",
+        "[class*='resultado']", "[class*='medico']", "[class*='card']",
     ]
     linhas = []
     for sel in seletores_linha:
@@ -143,6 +162,8 @@ def extrair_pagina_atual(driver):
             resultados.append({"nome": primeira_linha, "crm": crm, "uf": "SP", "texto_bruto": texto})
     else:
         print("  Nenhuma linha de resultado estruturada encontrada - salvando fallback vazio.")
+        if page_num == 1:
+            dump_diagnostico(driver, "nenhuma linha de resultado encontrada na página 1")
 
     return resultados
 
@@ -186,7 +207,7 @@ def main():
             pagina = 1
             while True:
                 print(f"\nLendo página {pagina}...")
-                resultados_pagina = extrair_pagina_atual(driver)
+                resultados_pagina = extrair_pagina_atual(driver, pagina)
                 print(f"  -> {len(resultados_pagina)} registros nesta página")
                 todos_resultados.extend(resultados_pagina)
 
