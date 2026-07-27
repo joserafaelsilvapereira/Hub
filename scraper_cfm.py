@@ -100,10 +100,16 @@ def aceitar_cookies(driver, wait):
             botao = WebDriverWait(driver, 4).until(EC.presence_of_element_located((by, seletor)))
             driver.execute_script("arguments[0].click();", botao)
             time.sleep(0.5)
-            return
+            break
         except TimeoutException:
             continue
-    pass  # banner pode não aparecer sempre
+
+    # Mesmo depois de aceitar, um segundo aviso (LGPD) fixo no rodapé
+    # (.aviso-lgpd / .mensagem-lgpd) pode continuar cobrindo a tela e
+    # interceptando cliques em outros botões (ex: ENVIAR). Remove-o via JS.
+    driver.execute_script(
+        "document.querySelectorAll('.aviso-lgpd, .mensagem-lgpd').forEach(el => el.remove());"
+    )
 
 
 def selecionar_uf(driver, wait, uf: str):
@@ -125,8 +131,9 @@ def _select_by_value_ou_texto(select_el, uf):
 
 
 def enviar_busca(driver, wait):
-    botao = wait.until(EC.element_to_be_clickable((By.XPATH, SELECTORS["botao_enviar"])))
-    botao.click()
+    botao = wait.until(EC.presence_of_element_located((By.XPATH, SELECTORS["botao_enviar"])))
+    driver.execute_script("arguments[0].scrollIntoView({block:'center'});", botao)
+    driver.execute_script("arguments[0].click();", botao)
     # espera pedida: alguns segundos após a busca, pro resultado (AJAX) aparecer
     time.sleep(ESPERA_APOS_BUSCA)
 
@@ -165,7 +172,7 @@ def ir_para_proxima_pagina(driver) -> bool:
         return False
 
     driver.execute_script("arguments[0].scrollIntoView({block:'center'});", botao)
-    botao.click()
+    driver.execute_script("arguments[0].click();", botao)
     time.sleep(ESPERA_APOS_PAGINACAO)
     return True
 
