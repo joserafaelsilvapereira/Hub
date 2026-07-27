@@ -1,0 +1,43 @@
+name: Scraper CFM
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar Google Chrome
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Instalar dependências Python
+        run: |
+          pip install selenium webdriver-manager
+
+      - name: Rodar scraper
+        run: python cfm_scraper.py
+
+      - name: Salvar CSV como artefato
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: medicos-sp
+          path: medicos_sp.csv
+          if-no-files-found: ignore
+
+      - name: Salvar screenshots de debug
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-screenshots
+          path: debug_*.png
+          if-no-files-found: ignore
