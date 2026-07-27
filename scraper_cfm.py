@@ -28,15 +28,24 @@ Como ajustar:
      e copie o seletor certo (id, name ou classe) pro dicionário SELECTORS.
 
 REQUISITOS (rodar localmente, no seu computador):
-    pip install selenium
-    # baixar o chromedriver compatível com sua versão do Chrome:
+    O script instala o pacote "selenium" sozinho na primeira vez que rodar
+    (veja abaixo). Você só precisa ter o Chrome instalado e o chromedriver
+    compatível com sua versão do Chrome:
     # https://googlechromelabs.github.io/chrome-for-testing/
 """
 
 import csv
+import subprocess
+import sys
 import time
 
-from selenium import webdriver
+try:
+    from selenium import webdriver
+except ImportError:
+    print("Pacote 'selenium' não encontrado - instalando via pip...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "selenium"])
+    from selenium import webdriver
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select, WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
